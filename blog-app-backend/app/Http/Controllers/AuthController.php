@@ -19,7 +19,10 @@ class AuthController extends Controller
 
             $token = $user->createToken('api-token')->plainTextToken;
 
-            return response()->json(['token' => $token]);
+            return response()->json([
+                'token' => $token,
+                'role' => $user->getRoleNames()->first(),
+            ]);
         }
 
         public function register(Request $request)

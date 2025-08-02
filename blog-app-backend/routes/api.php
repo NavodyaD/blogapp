@@ -26,8 +26,10 @@ Route::middleware(['auth:sanctum', 'role:writer'])->group(function (){
     Route::patch('/posts/{id}/save', [BlogPostController::class, 'savePost']);
 });
 
-Route::middleware(['auth:sanctum', 'role:admin'])->group(function (){
+Route::middleware(['auth:sanctum'])->group(function (){
     Route::patch('/posts/{id}/approve', [BlogPostController::class, 'approve']);
 });
 
 Route::get('/posts', [BlogPostController::class, 'index']);
+Route::get('/posts/{id}', [BlogPostController::class, 'getSinglePost']);
+

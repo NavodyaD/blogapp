@@ -35,6 +35,16 @@ class BlogPostController extends Controller
         return response()->json($post, 201);
     }
 
+    public function getSinglePost($id) {
+        $post = BlogPost::find($id);
+
+        if(!$post) {
+            return response()->json(['message'=>'BlogPost not found'], 404);
+        }
+
+        return response()->json($post);
+    }
+
     public function destroy($id)
     {
         $post = BlogPost::find($id);
@@ -69,14 +79,7 @@ class BlogPostController extends Controller
             return response()->json(['message'=>'Unauthorized'], 403);
         }
 
-        $validated = $request-validate([
-            'post_title' => 'sometimes|string|max:255',
-            'post_body' => 'sometimes|text',
-            'cover_image' => 'nullable|string',
-            'post_status' => 'in:draft,pending,approved,published',
-        ]);
-
-        $post->update($validated);
+        $post->update();
 
         return response()->json(['message'=>'Blog post updated successful', 'post'=> $post]);
     }
