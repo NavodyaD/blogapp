@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\BlogPostController;
+use App\Http\Controllers\PostCommentController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -24,6 +25,7 @@ Route::middleware(['auth:sanctum', 'role:writer'])->group(function (){
     Route::get('/own-posts', [BlogPostController::class, 'ownPosts']);
     Route::patch('/posts/{id}', [BlogPostController::class, 'update']);
     Route::patch('/posts/{id}/save', [BlogPostController::class, 'savePost']);
+    Route::post('/comments', [PostCommentController::class, 'store']);
 });
 
 Route::middleware(['auth:sanctum'])->group(function (){
@@ -32,4 +34,9 @@ Route::middleware(['auth:sanctum'])->group(function (){
 
 Route::get('/posts', [BlogPostController::class, 'index']);
 Route::get('/posts/{id}', [BlogPostController::class, 'getSinglePost']);
+
+Route::get('/comments/{id}', [PostCommentController::class, 'getComments']);
+//Route::middleware('auth:sanctum')->post('/comments', [PostCommentController::class, 'store']);
+
+
 
