@@ -28,8 +28,9 @@ Route::middleware(['auth:sanctum', 'role:writer'])->group(function (){
     Route::post('/comments', [PostCommentController::class, 'store']);
 });
 
-Route::middleware(['auth:sanctum'])->group(function (){
+Route::middleware(['auth:sanctum', 'role:admin'])->group(function (){
     Route::patch('/posts/{id}/approve', [BlogPostController::class, 'approve']);
+    Route::delete('/posts/{id}', [BlogPostController::class, 'destroy']);
 });
 
 Route::get('/posts', [BlogPostController::class, 'index']);

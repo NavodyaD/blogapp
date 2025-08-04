@@ -18,17 +18,24 @@ class BlogPostController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'post_title'=>'required|string|max:255',
-            'post_body'=>'required|string',
-            'cover_image'=>'nullable|string',
-            'post_status'=>'in:draft,pending',
+            'post_title' => 'required|string|max:255',
+            'post_body' => 'required|string',
+            'cover_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'post_status' => 'in:draft,pending',
         ]);
+
+        $imagePath = null;
+
+        if ($request->hasFile('cover_image')) {
+            // Store the image in storage/app/public/cover_images
+            $imagePath = $request->file('cover_image')->store('cover_images', 'public');
+        }
 
         $post = BlogPost::create([
             'user_id' => Auth::id(),
             'post_title' => $request->post_title,
             'post_body' => $request->post_body,
-            'cover_image' => $request->cover_image,
+            'cover_image' => $imagePath,
             'post_status' => $request->post_status ?? 'draft',
         ]);
 
