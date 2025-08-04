@@ -23,14 +23,18 @@ Route::middleware(['auth:sanctum', 'role:writer'])->group(function (){
     Route::post('/posts', [BlogPostController::class, 'store']);
     Route::delete('/posts/{id}', [BlogPostController::class, 'destroy']);
     Route::get('/own-posts', [BlogPostController::class, 'ownPosts']);
+    Route::get('/own-drafts', [BlogPostController::class, 'ownDrafts']);
     Route::patch('/posts/{id}', [BlogPostController::class, 'update']);
     Route::patch('/posts/{id}/save', [BlogPostController::class, 'savePost']);
     Route::post('/comments', [PostCommentController::class, 'store']);
+    Route::post('/writer-logout', [AuthController::class, 'logout']);
 });
 
 Route::middleware(['auth:sanctum', 'role:admin'])->group(function (){
-    Route::patch('/posts/{id}/approve', [BlogPostController::class, 'approve']);
     Route::delete('/posts/{id}', [BlogPostController::class, 'destroy']);
+    Route::patch('/posts/{id}/approve', [BlogPostController::class, 'approve']);
+    Route::get('/all-posts', [BlogPostController::class, 'allPosts']);
+    Route::post('/admin-logout', [AuthController::class, 'logout']);
 });
 
 Route::get('/posts', [BlogPostController::class, 'index']);
@@ -38,6 +42,8 @@ Route::get('/posts/{id}', [BlogPostController::class, 'getSinglePost']);
 
 Route::get('/comments/{id}', [PostCommentController::class, 'getComments']);
 //Route::middleware('auth:sanctum')->post('/comments', [PostCommentController::class, 'store']);
+
+
 
 
 

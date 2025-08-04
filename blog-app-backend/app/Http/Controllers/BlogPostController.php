@@ -10,6 +10,13 @@ class BlogPostController extends Controller
 {
     public function index()
     {
+        $posts = BlogPost::with('user')->where('post_status', 'published')->orderBy('created_at', 'desc')->get();
+
+        return response()->json($posts);
+    }
+
+    public function allPosts()
+    {
         $posts = BlogPost::with('user')->orderBy('created_at', 'desc')->get();
 
         return response()->json($posts);
@@ -42,7 +49,8 @@ class BlogPostController extends Controller
         return response()->json($post, 201);
     }
 
-    public function getSinglePost($id) {
+    public function getSinglePost($id)
+    {
         $post = BlogPost::find($id);
 
         if(!$post) {
@@ -70,6 +78,15 @@ class BlogPostController extends Controller
         $user = auth()->user();
 
         $posts = BlogPost::with('user')->where('user_id', $user->id)->orderBy('created_at', 'desc')->get();
+
+        return response()->json($posts);
+    }
+
+    public function ownDrafts()
+    {
+        $user = auth()->user();
+
+        $posts = BlogPost::with('user')->where('user_id', $user->id)->where('post_status', 'draft')->get();
 
         return response()->json($posts);
     }
