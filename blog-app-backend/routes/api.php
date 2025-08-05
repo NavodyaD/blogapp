@@ -9,6 +9,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\BlogPostController;
 use App\Http\Controllers\PostCommentController;
+use App\Http\Controllers\PostReactionController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -28,6 +29,8 @@ Route::middleware(['auth:sanctum', 'role:writer'])->group(function (){
     Route::patch('/posts/{id}/save', [BlogPostController::class, 'savePost']);
     Route::post('/comments', [PostCommentController::class, 'store']);
     Route::post('/writer-logout', [AuthController::class, 'logout']);
+    Route::post('/posts/react/{id}', [PostReactionController::class, 'toggleReaction']);
+    Route::get('/posts/reactions/{id}', [PostReactionController::class, 'getReactions']);
 });
 
 Route::middleware(['auth:sanctum', 'role:admin'])->group(function (){

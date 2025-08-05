@@ -36,4 +36,9 @@ class BlogPost extends Model
         return $this->hasMany(PostComment::class, 'blog_post_id');
     }
 
+    public function reactions()
+    {
+        return $this->hasMany(PostReaction::class);
+    }
+
 }
