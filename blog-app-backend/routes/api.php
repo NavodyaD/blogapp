@@ -18,8 +18,6 @@ Route::get('/user', function (Request $request) {
 Route::post('/login',[AuthController::class, 'login']);
 Route::post('/register',[AuthController::class, 'register']);
 
-Route::middleware(['auth:sanctum', 'role:admin'])->get('/admin/blogs', [BlogController::class, 'index']);
-
 Route::middleware(['auth:sanctum', 'role:writer'])->group(function (){
     Route::post('/posts', [BlogPostController::class, 'store']);
     Route::delete('/posts/{id}', [BlogPostController::class, 'destroy']);
@@ -38,13 +36,12 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group(function (){
     Route::patch('/posts/{id}/approve', [BlogPostController::class, 'approve']);
     Route::get('/all-posts', [BlogPostController::class, 'allPosts']);
     Route::post('/admin-logout', [AuthController::class, 'logout']);
+    Route::get('/posts/pending', [BlogPostController::class, 'getPendingPosts']);
 });
 
 Route::get('/posts', [BlogPostController::class, 'index']);
 Route::get('/posts/{id}', [BlogPostController::class, 'getSinglePost']);
-
 Route::get('/comments/{id}', [PostCommentController::class, 'getComments']);
-//Route::middleware('auth:sanctum')->post('/comments', [PostCommentController::class, 'store']);
 
 
 

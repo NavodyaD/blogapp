@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\BlogPost;
 use Exception;
 
+use App\Mail\PostApprovedMail;
+use Illuminate\Support\Facades\Mail;
+
 class BlogPostController extends Controller
 {
     public function index()
@@ -36,6 +39,23 @@ class BlogPostController extends Controller
         } catch (Exception $e) {
             return respose()->json([
                 'message'=>'Failed to fetch posts',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getPendingPosts()
+    {
+        try {
+
+            $posts = BlogPost::with('user')
+            ->where('post_status', 'pending')
+            ->get();
+            return response()->json($posts);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'Failed to fetch pending posts',
                 'error' => $e->getMessage()
             ], 500);
         }
@@ -162,7 +182,14 @@ class BlogPostController extends Controller
                 return response()->json(['message'=>'Unauthorized'], 403);
             }
 
-            $post->update();
+            $validated = $request->validate([
+                'post_title' => 'required|string|max:255',
+                'post_body' => 'required|string',
+                'cover_image' => 'nullable|string',
+                'post_status' => 'required|in:draft,pending,published',
+            ]);
+
+            $post->update($validated);
 
             return response()->json(['message'=>'Blog post updated successful', 'post'=> $post]);
         } catch (Exception $e) {
@@ -214,6 +241,10 @@ class BlogPostController extends Controller
 
             $post->post_status = 'published';
             $post->save();
+
+            if ($post->user && $post->user->email) {
+                Mail::to($post->user->email)->send(new PostApprovedMail($post));
+            }
 
             return response()->json(['message'=>'Post approved and published successfully.', 'post' => $post]);
         } catch (Exception $e) {
