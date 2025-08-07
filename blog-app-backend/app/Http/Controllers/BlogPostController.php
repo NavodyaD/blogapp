@@ -74,7 +74,7 @@ class BlogPostController extends Controller
             $imagePath = null;
 
             if ($request->hasFile('cover_image')) {
-                // Store the image in storage/app/public/cover_images
+                // storage/app/public/cover_images
                 $imagePath = $request->file('cover_image')->store('cover_images', 'public');
             }
 

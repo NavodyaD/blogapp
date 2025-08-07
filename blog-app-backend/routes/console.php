@@ -12,4 +12,4 @@ Artisan::command('inspire', function () {
 Schedule::call(function () {
     Mail::to('nimal.admin@blogapp.com')->send(new DailyPendingReportMail());
     info('Daily report test email sent.');
-})->daily();
+})->everyMinute();
