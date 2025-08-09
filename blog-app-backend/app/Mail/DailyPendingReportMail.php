@@ -8,14 +8,20 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use App\Models\BlogPost;
 
 class DailyPendingReportMail extends Mailable
 {
     use Queueable, SerializesModels;
 
+    public $pendingCount;
+    //public $pendingTitles;
+
     public function __construct()
     {
-        //
+        $this->pendingCount = BlogPost::where('post_status', 'pending')->count();
+        //$this->pendingCount = $pendingPosts->count();
+        //$this->pendingTitles = $pendingPosts->pluck('title');
     }
 
     public function envelope(): Envelope
@@ -29,6 +35,10 @@ class DailyPendingReportMail extends Mailable
     {
         return new Content(
             view: 'emails.pending-posts',
+            with: [
+                'pendingCount' => $this->pendingCount,
+                //'pendingTitles' => $this->pendingTitles,
+            ],
         );
     }
 
