@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\BlogPost;
 use App\Models\PostReaction;
+use Exception;
 
 class PostReactionController extends Controller
 {
