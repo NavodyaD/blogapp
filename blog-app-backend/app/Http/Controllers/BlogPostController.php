@@ -16,9 +16,10 @@ class BlogPostController extends Controller
     {
         try {
             $posts = BlogPost::with('user')
+                ->withCount(['reactions', 'comments'])
                 ->where('post_status', 'published')
                 ->orderBy('created_at', 'desc')
-                ->get();
+                ->paginate(6);
 
             return response()->json($posts, 200);
         } catch (Exception $e) {
@@ -253,5 +254,37 @@ class BlogPostController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    public function topLikedPosts()
+    {
+        return BlogPost::withCount('reactions')
+            ->orderBy('reactions_count', 'desc')
+            ->take(2)
+            ->get(['id','post_title']);
+    }
+
+    public function topCommentedPosts()
+    {
+        return BlogPost::withCount('comments')
+            ->orderBy('comments_count', 'desc')
+            ->take(2)
+            ->get(['id','post_title']);
+    }
+
+    public function searchPosts(Request $request)
+    {
+        $request->validate([
+            'query' => 'required|string|max:255',
+        ]);
+
+        $query = $request->input('query');
+
+        $posts = BlogPost::with('user', 'comments', 'reactions')
+            ->withCount(['reactions', 'comments'])
+            ->where('post_title', 'LIKE', "%{$query}%")
+            ->get();
+
+        return response()->json($posts);
     }
 }

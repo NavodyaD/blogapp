@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use App\Models\PostComment;
 use Exception;
 
@@ -48,4 +48,50 @@ class PostCommentController extends Controller
             ], 500);
         }
     }
+
+    public function destroyComment($id)
+    {
+        try {
+            $comment = PostComment::find($id);
+
+            if (!$comment) {
+                return response()->json(['message' => 'Comment not found'], 404);
+            }
+
+            if ($comment->user_id !== Auth::id()) {
+                return response()->json(['message' => 'Unauthorized'], 403);
+            }
+
+            $comment->delete();
+
+            return response()->json(['message' => 'Comment deleted successfully']);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'Unable to delete the comment',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getUserComments()
+    {
+        try {
+            $userId = Auth::id();
+
+            $comments = PostComment::with('user')
+                ->where('user_id', $userId)
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            return response()->json($comments);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'Unable to fetch user comments',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
 }

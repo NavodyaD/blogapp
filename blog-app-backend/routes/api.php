@@ -28,7 +28,6 @@ Route::middleware(['auth:sanctum', 'role:writer'])->group(function (){
     Route::post('/comments', [PostCommentController::class, 'store']);
     Route::post('/writer-logout', [AuthController::class, 'logout']);
     Route::post('/posts/react/{id}', [PostReactionController::class, 'toggleReaction']);
-    Route::get('/posts/reactions/{id}', [PostReactionController::class, 'getReactions']);
 });
 
 Route::middleware(['auth:sanctum', 'role:admin'])->group(function (){
@@ -37,14 +36,28 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group(function (){
     Route::post('/admin-logout', [AuthController::class, 'logout']);
     Route::get('/posts/pending', [BlogPostController::class, 'getPendingPosts']);
     Route::get('/admin/insights', [AdminDashboardController::class, 'getInsights']);
+    Route::post('/admin/register',[AuthController::class, 'registerAdmin']);
+    Route::get('/admin/list', [AdminDashboardController::class, 'listAdmins']);
+    Route::post('/admin/delete', [AuthController::class, 'deleteAdmin']);
+});
+
+Route::middleware(['auth:sanctum', 'role:admin|writer'])->group(function (){
+    Route::delete('/posts/{id}', [BlogPostController::class, 'destroy']);
 });
 
 Route::get('/posts', [BlogPostController::class, 'index']);
 Route::get('/posts/{id}', [BlogPostController::class, 'getSinglePost']);
 Route::get('/comments/{id}', [PostCommentController::class, 'getComments']);
-Route::delete('/posts/{id}', [BlogPostController::class, 'destroy']);
+Route::get('/posts/reactions/{id}', [PostReactionController::class, 'getReactions']);
+Route::get('/admin/insights/top-liked', [BlogPostController::class, 'topLikedPosts']);
+Route::get('/admin/insights/top-commented', [BlogPostController::class, 'topCommentedPosts']);
+Route::post('/posts/search', [BlogPostController::class, 'searchPosts']);
 
-
+Route::middleware(['auth:sanctum'])->group(function (){
+    Route::delete('comments/{id}', [PostCommentController::class, 'destroyComment']);
+    Route::get('/current-user', [AuthController::class, 'getCurrentUser']);
+    Route::get('/user/comments', [PostCommentController::class, 'getUserComments']);
+});
 
 
 
