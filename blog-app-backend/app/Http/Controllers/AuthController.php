@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
+use App\Helpers\ApiResponse;
 use Spatie\Permission\Models\Role;
 use Exception;
 
@@ -22,16 +23,15 @@ class AuthController extends Controller
 
                 $token = $user->createToken('api-token')->plainTextToken;
 
-                return response()->json([
+                $data = [
                     'token' => $token,
                     'role' => $user->getRoleNames()->first(),
-                ]);
+                ];
+
+                return ApiResponse::success($data, 'Login successful');
 
             } catch (Exception $e) {
-                return response()->json([
-                    'message' => 'Failed to login user',
-                    'error' => $e->getMessage()
-                ], 500);
+                return ApiResponse::error('Failed to login user', $e->getMessage(), 500);
             }
         }
 
@@ -55,17 +55,16 @@ class AuthController extends Controller
 
                 $token = $user->createToken('api-token')->plainTextToken;
 
-                return response()->json([
+                $data = [
                     'user' => $user,
                     'role' => $request->role,
                     'token' => $token
-                ], 201);
+                ];
+
+                return ApiResponse::success($data, 'User registered successfully', 201);
 
             } catch (Exception $e) {
-                return response()->json([
-                    'message' => 'Failed to register user',
-                    'error' => $e->getMessage()
-                ], 500);
+                return ApiResponse::error('Failed to register user', $e->getMessage(), 500);
             }
         }
 
@@ -74,13 +73,10 @@ class AuthController extends Controller
             try {
                 $request->user()->currentAccessToken()->delete();
 
-                return response()->json(['message'=>'Logged Out!'], 200);
+                return ApiResponse::success(null, 'Logged out successfully');
 
             } catch (Exception $e) {
-                return response()->json([
-                    'message' => 'Failed to logout the user',
-                    'error' => $e->getMessage()
-                ], 500);
+                return ApiResponse::error('Failed to logout the user', $e->getMessage(), 500);
             }
         }
 
@@ -89,16 +85,13 @@ class AuthController extends Controller
             try {
                 $user = Auth::user();
 
-                return response()->json([
+                return ApiResponse::success([
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
-                ]);
+                ], 'Fetched current user');
             } catch (Exception $e) {
-                return response()->json([
-                    'message' => 'Unable to fetch user info',
-                    'error' => $e->getMessage()
-                ], 500);
+                return ApiResponse::error('Unable to fetch user info', $e->getMessage(), 500);
             }
         }
 
@@ -115,9 +108,7 @@ class AuthController extends Controller
                     $role = 'admin';
                     $name = 'admin user';
                 } else {
-                    return response()->json([
-                        'message' => 'Invalid admin key'
-                    ], 403);
+                    return ApiResponse::error('Invalid admin key', null, 403);
                 }
 
                 $user = User::create([
@@ -130,44 +121,41 @@ class AuthController extends Controller
 
                 $token = $user->createToken('api-token')->plainTextToken;
 
-                return response()->json([
+                return ApiResponse::success([
                     'user' => $user,
                     'role' => $role,
                     'token' => $token
-                ], 201);
+                ], 'Admin registered successfully', 201);
 
             } catch (Exception $e) {
-                return response()->json([
-                    'message' => 'Failed to register user',
-                    'error' => $e->getMessage()
-                ], 500);
+                return ApiResponse::error('Failed to register user', $e->getMessage(), 500);
             }
         }
 
-            public function deleteAdmin(Request $request)
-            {
-                try {
-                    $request->validate([
-                        'email' => 'required|email',
-                        'admin_key' => 'required|string'
-                    ]);
+        public function deleteAdmin(Request $request)
+        {
+            try {
+                $request->validate([
+                    'email' => 'required|email',
+                    'admin_key' => 'required|string'
+                ]);
 
-                    if ($request->admin_key !== env('ADMIN_CREATION_KEY')) {
-                        return response()->json(['message' => 'Invalid admin key'], 403);
-                    }
-
-                    $admin = User::where('email', $request->email)->first();
-                    if (!$admin || !$admin->hasRole('admin')) {
-                        return response()->json(['message' => 'Admin not found'], 404);
-                    }
-
-                    $admin->delete();
-
-                    return response()->json(['message' => 'Admin deleted successfully'], 200);
-
-                } catch (Exception $e) {
-                    return response()->json(['message' => 'Failed to delete admin', 'error' => $e->getMessage()], 500);
+                if ($request->admin_key !== env('ADMIN_CREATION_KEY')) {
+                    return ApiResponse::error('Invalid admin key', null, 403);
                 }
+
+                $admin = User::where('email', $request->email)->first();
+                if (!$admin || !$admin->hasRole('admin')) {
+                    return ApiResponse::error('Admin not found', null, 404);
+                }
+
+                $admin->delete();
+
+                return ApiResponse::success(null, 'Admin deleted successfully', 200);
+
+            } catch (Exception $e) {
+                return ApiResponse::error('Failed to delete admin', $e->getMessage(), 500);
             }
+        }
 
 }
