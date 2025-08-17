@@ -8,6 +8,8 @@ use App\Models\BlogPost;
 use Exception;
 
 use App\Mail\PostApprovedMail;
+use App\Jobs\PostApprovedEmail;
+use App\Helpers\ApiResponse;
 use Illuminate\Support\Facades\Mail;
 
 class BlogPostController extends Controller
@@ -21,12 +23,9 @@ class BlogPostController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->paginate(6);
 
-            return response()->json($posts, 200);
+            return ApiResponse::success($posts, 'Fetched published posts');
         } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Failed to fetch posts',
-                'error' => $e->getMessage()
-            ], 500);
+            return ApiResponse::error('Failed to fetch posts', $e->getMessage());
         }
     }
 
@@ -35,13 +34,11 @@ class BlogPostController extends Controller
         try {
 
             $posts = BlogPost::with('user')->orderBy('created_at', 'desc')->get();
-            return response()->json($posts);
+
+            return ApiResponse::success($posts, 'Fetched all posts');
 
         } catch (Exception $e) {
-            return respose()->json([
-                'message'=>'Failed to fetch posts',
-                'error' => $e->getMessage()
-            ], 500);
+            return ApiResponse::error('Failed to fetch posts', $e->getMessage());
         }
     }
 
@@ -243,9 +240,7 @@ class BlogPostController extends Controller
             $post->post_status = 'published';
             $post->save();
 
-            if ($post->user && $post->user->email) {
-                Mail::to($post->user->email)->send(new PostApprovedMail($post));
-            }
+            PostApprovedEmail::dispatch($post);
 
             return response()->json(['message'=>'Post approved and published successfully.', 'post' => $post]);
         } catch (Exception $e) {

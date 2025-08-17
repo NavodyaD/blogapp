@@ -37,19 +37,6 @@ class AdminDashboardController extends Controller
         }
     }
 
-    public function assignUser(Request $request, $email) {
-        $user = User::where('email', $email);
-
-        if(!$user) {
-            return response()->json(['message'=>'Cannot find the user for this email'], 404);
-        }
-
-        $user->assignRole('admin');
-
-        return rsponse()->json(['message'=>'Gave admin permissions to user', 'user' => $user]);
-    }
-
-
     public function listAdmins()
     {
         try {
