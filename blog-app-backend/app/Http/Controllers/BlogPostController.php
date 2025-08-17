@@ -49,13 +49,11 @@ class BlogPostController extends Controller
             $posts = BlogPost::with('user')
             ->where('post_status', 'pending')
             ->get();
-            return response()->json($posts);
+
+            return ApiResponse::success($posts, 'Fetched pending posts');
 
         } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Failed to fetch pending posts',
-                'error' => $e->getMessage()
-            ], 500);
+            return ApiResponse::error('Failed to fetch pending posts', $e->getMessage());
         }
     }
 
@@ -84,12 +82,11 @@ class BlogPostController extends Controller
                 'post_status' => $request->post_status ?? 'draft',
             ]);
 
-            return response()->json($post, 201);
+            return ApiResponse::success($post, 'Blog post uploaded successful', 201);
+
         } catch (Exception $e) {
-            return respose()->json([
-                'message'=>'Failed to store blogpost',
-                'error' => $e->getMessage()
-            ], 500);
+
+            return ApiResponse::error('Failed to upload post', $e->getMessage());
         }
     }
 
@@ -99,16 +96,13 @@ class BlogPostController extends Controller
             $post = BlogPost::find($id);
 
             if(!$post) {
-                return response()->json(['message'=>'BlogPost not found'], 404);
+                return ApiResponse::error('Blog post not found', null, 404);
             }
 
-            return response()->json($post);
+            return ApiResponse::success($post, 'Post fetched success');
 
         } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Failed to get post',
-                'error' => $e->getMessage()
-            ], 500);
+            return ApiResponse::error('Failed to fetch post', $e->getMessage());
         }
     }
 
@@ -124,13 +118,10 @@ class BlogPostController extends Controller
 
             $post->delete();
 
-            return response()->json(['message'=>'Blog post deleted successfully']);
+            return ApiResponse::success(null, 'Post deleted successfully');
 
         } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Unable to delete the blogpost',
-                'error' => $e->getMessage()
-            ], 500);
+            return ApiResponse::error('Unable to delete the blog post', $e->getMessage(), 500);
         }
     }
 
@@ -141,12 +132,9 @@ class BlogPostController extends Controller
 
             $posts = BlogPost::with('user')->where('user_id', $user->id)->orderBy('created_at', 'desc')->get();
 
-            return response()->json($posts);
+            return ApiResponse::success($posts, 'Fetched your posts');
         } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Failed to fetch posts',
-                'error' => $e->getMessage()
-            ], 500);
+            return ApiResponse::error('Failed to fetch posts', $e->getMessage(), 500);
         }
     }
 
@@ -157,13 +145,10 @@ class BlogPostController extends Controller
 
             $posts = BlogPost::with('user')->where('user_id', $user->id)->where('post_status', 'draft')->get();
 
-            return response()->json($posts);
+            return ApiResponse::success($posts, 'Fetched your draft posts');
 
         } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Failed to fetch posts',
-                'error' => $e->getMessage()
-            ], 500);
+            return ApiResponse::error('Failed to fetch drafts', $e->getMessage(), 500);
         }
     }
 
@@ -173,11 +158,11 @@ class BlogPostController extends Controller
             $post = BlogPost::find($id);
 
             if(!$post) {
-                return response()->json(['message'=>'Cannot find the BlogPost.'], 404);
+                return ApiResponse::error('Cannot find the BlogPost.', null, 404);
             }
 
             if(auth()->id() !== $post->user_id) {
-                return response()->json(['message'=>'Unauthorized'], 403);
+                return ApiResponse::error('Unauthorized', null, 403);
             }
 
             $validated = $request->validate([
@@ -189,12 +174,9 @@ class BlogPostController extends Controller
 
             $post->update($validated);
 
-            return response()->json(['message'=>'Blog post updated successful', 'post'=> $post]);
+            return ApiResponse::success($post, 'Blog post updated successfully');
         } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Unable to update post',
-                'error' => $e->getMessage()
-            ], 500);
+            return ApiResponse::error('Unable to update post', $e->getMessage(), 500);
         }
     }
 
@@ -204,23 +186,20 @@ class BlogPostController extends Controller
             $post = BlogPost::find($id);
 
             if(!$post) {
-                return response()->json(['message'=>'Cannot find the post'], 404);
+                return ApiResponse::error('Cannot find the post', null, 404);
             }
 
             if($post->post_status !== 'draft') {
-                return response()->json(['message'=>'This post is not able to save']);
+                return ApiResponse::error('This post is not able to save', null, 400);
             }
 
             $post->post_status = 'pending';
             $post->save();
 
-            return response()->json(['message'=>'Post saved successfully', 'post'=> $post]);
+            return ApiResponse::success($post, 'Post saved successfully');
 
         } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Unable to save post',
-                'error' => $e->getMessage()
-            ], 500);
+            return ApiResponse::error('Unable to save post', $e->getMessage(), 500);
         }
     }
 
@@ -230,11 +209,11 @@ class BlogPostController extends Controller
             $post = BlogPost::find($id);
 
             if(!$post) {
-                return response()->json(['message'=>'Cannot find the post'], 404);
+                return ApiResponse::error('Cannot find the post', null, 404);
             }
 
             if($post->post_status !== 'pending') {
-                return response()->json(['message'=> 'This is not a pending post']);
+                return ApiResponse::error('This is not a pending post', null, 400);
             }
 
             $post->post_status = 'published';
@@ -242,44 +221,57 @@ class BlogPostController extends Controller
 
             PostApprovedEmail::dispatch($post);
 
-            return response()->json(['message'=>'Post approved and published successfully.', 'post' => $post]);
+            return ApiResponse::success($post, 'Post approved and published successfully.');
         } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Unable to approve post',
-                'error' => $e->getMessage()
-            ], 500);
+            return ApiResponse::error('Unable to approve post', $e->getMessage(), 500);
         }
     }
 
     public function topLikedPosts()
     {
-        return BlogPost::withCount('reactions')
-            ->orderBy('reactions_count', 'desc')
-            ->take(2)
-            ->get(['id','post_title']);
+        try {
+            $posts = BlogPost::withCount('reactions')
+                ->orderBy('reactions_count', 'desc')
+                ->take(2)
+                ->get(['id', 'post_title']);
+
+            return ApiResponse::success($posts, 'Top liked posts fetched successfully');
+        } catch (Exception $e) {
+            return ApiResponse::error('Failed to fetch top liked posts', $e->getMessage(), 500);
+        }
     }
 
     public function topCommentedPosts()
     {
-        return BlogPost::withCount('comments')
-            ->orderBy('comments_count', 'desc')
-            ->take(2)
-            ->get(['id','post_title']);
+        try {
+            $posts = BlogPost::withCount('comments')
+                ->orderBy('comments_count', 'desc')
+                ->take(2)
+                ->get(['id', 'post_title']);
+
+            return ApiResponse::success($posts, 'Top commented posts fetched successfully');
+        } catch (Exception $e) {
+            return ApiResponse::error('Failed to fetch top commented posts', $e->getMessage(), 500);
+        }
     }
 
     public function searchPosts(Request $request)
     {
-        $request->validate([
-            'query' => 'required|string|max:255',
-        ]);
+        try {
+            $request->validate([
+                'query' => 'required|string|max:255',
+            ]);
 
-        $query = $request->input('query');
+            $query = $request->input('query');
 
-        $posts = BlogPost::with('user', 'comments', 'reactions')
-            ->withCount(['reactions', 'comments'])
-            ->where('post_title', 'LIKE', "%{$query}%")
-            ->get();
+            $posts = BlogPost::with('user', 'comments', 'reactions')
+                ->withCount(['reactions', 'comments'])
+                ->where('post_title', 'LIKE', "%{$query}%")
+                ->get();
 
-        return response()->json($posts);
+            return ApiResponse::success($posts, 'Search results fetched successfully');
+        } catch (Exception $e) {
+            return ApiResponse::error('Failed to search posts', $e->getMessage(), 500);
+        }
     }
 }

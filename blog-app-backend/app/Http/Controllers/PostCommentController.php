@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\PostComment;
+use App\Helpers\ApiResponse;
 use Exception;
 
 class PostCommentController extends Controller
@@ -13,16 +14,12 @@ class PostCommentController extends Controller
     {
         try {
             $comments = PostComment::with('user')
-            ->where('blog_post_id', $id)
-            ->get();
+                ->where('blog_post_id', $id)
+                ->get();
 
-            return response()->json($comments);
-
+            return ApiResponse::success($comments, 'Comments fetched successfully');
         } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Unable to fetch comments',
-                'error' => $e->getMessages()
-            ], 500);
+            return ApiResponse::error('Unable to fetch comments', $e->getMessage(), 500);
         }
     }
 
@@ -40,12 +37,9 @@ class PostCommentController extends Controller
                 'comment_text' => $request->comment_text,
             ]);
 
-            return response()->json($comment, 201);
+            return ApiResponse::success($comment, 'Comment added successfully', 201);
         } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Unable to store comment',
-                'error' => $e->getMessage()
-            ], 500);
+            return ApiResponse::error('Unable to store comment', $e->getMessage(), 500);
         }
     }
 
@@ -55,22 +49,18 @@ class PostCommentController extends Controller
             $comment = PostComment::find($id);
 
             if (!$comment) {
-                return response()->json(['message' => 'Comment not found'], 404);
+                return ApiResponse::error('Comment not found', null, 404);
             }
 
             if ($comment->user_id !== Auth::id()) {
-                return response()->json(['message' => 'Unauthorized'], 403);
+                return ApiResponse::error('Unauthorized', null, 403);
             }
 
             $comment->delete();
 
-            return response()->json(['message' => 'Comment deleted successfully']);
-
+            return ApiResponse::success(null, 'Comment deleted successfully');
         } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Unable to delete the comment',
-                'error' => $e->getMessage()
-            ], 500);
+            return ApiResponse::error('Unable to delete the comment', $e->getMessage(), 500);
         }
     }
 
@@ -84,14 +74,11 @@ class PostCommentController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get();
 
-            return response()->json($comments);
-
+            return ApiResponse::success($comments, 'User comments fetched successfully');
         } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Unable to fetch user comments',
-                'error' => $e->getMessage()
-            ], 500);
+            return ApiResponse::error('Unable to fetch user comments', $e->getMessage(), 500);
         }
     }
+
 
 }

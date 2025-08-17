@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\BlogPost;
 use App\Models\PostReaction;
+use App\Helpers\ApiResponse;
 use Exception;
 
 class PostReactionController extends Controller
@@ -18,7 +19,7 @@ class PostReactionController extends Controller
             $post = BlogPost::find($postId);
 
             if (!$post) {
-                return response()->json(['error' => 'Post not found.'], 404);
+                return ApiResponse::error('Post not found', null, 404);
             }
 
             $existing = PostReaction::where('user_id', $user->id)
@@ -27,19 +28,16 @@ class PostReactionController extends Controller
 
             if ($existing) {
                 $existing->delete();
-                return response()->json(['status' => 'unliked']);
+                return ApiResponse::success(['status' => 'unliked'], 'Reaction removed successfully');
             } else {
                 PostReaction::create([
                     'user_id' => $user->id,
                     'blog_post_id' => $postId,
                 ]);
-                return response()->json(['status' => 'liked']);
+                return ApiResponse::success(['status' => 'liked'], 'Reaction added successfully');
             }
         } catch (Exception $e) {
-            return response()-json([
-                'message' => 'Failed to toggle reaction',
-                'error' => $e->getMessage()
-            ], 500);
+            return ApiResponse::error('Failed to toggle reaction', $e->getMessage(), 500);
         }
     }
 
@@ -49,21 +47,20 @@ class PostReactionController extends Controller
             $post = BlogPost::find($postId);
 
             if (!$post) {
-                return response()->json(['error' => 'Post not found.'], 404);
+                return ApiResponse::error('Post not found', null, 404);
             }
 
             $count = $post->reactions()->count();
             $userLiked = $post->reactions()->where('user_id', Auth::id())->exists();
 
-            return response()->json([
+            $data = [
                 'count' => $count,
                 'userLiked' => $userLiked,
-            ]);
+            ];
+
+            return ApiResponse::success($data, 'Reactions fetched successfully');
         } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Failed to get reactions',
-                'error' => $e->getMessage()
-            ], 500);
+            return ApiResponse::error('Failed to get reactions', $e->getMessage(), 500);
         }
     }
 }
