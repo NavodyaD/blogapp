@@ -2,160 +2,129 @@
 
 namespace App\Http\Controllers;
 
+use App\Handlers\AuthHandler;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
-use App\Models\User;
 use App\Helpers\ApiResponse;
-use Spatie\Permission\Models\Role;
 use Exception;
 
 class AuthController extends Controller
 {
-        public function login(Request $request)
-        {
-            try {
-                $user = User::where('email', $request->email)->first();
+    protected AuthHandler $handler;
 
-                if (! $user || ! Hash::check($request->password, $user->password)) {
-                    return response()->json(['message' => 'Invalid Email or Password'], 401);
-                }
+    public function __construct(AuthHandler $handler)
+    {
+        $this->handler = $handler;
+    }
 
-                $token = $user->createToken('api-token')->plainTextToken;
+    public function login(Request $request)
+    {
+        try {
+            $result = $this->handler->login($request->email, $request->password);
 
-                $data = [
-                    'token' => $token,
-                    'role' => $user->getRoleNames()->first(),
-                ];
-
-                return ApiResponse::success($data, 'Login successful');
-
-            } catch (Exception $e) {
-                return ApiResponse::error('Failed to login user', $e->getMessage(), 500);
+            if ($result['status'] === 'invalid_credentials') {
+                return ApiResponse::error('Invalid Email or Password', null, 401);
             }
+
+            return ApiResponse::success($result['data'], 'Login successful');
+        } catch (Exception $e) {
+            return ApiResponse::error('Failed to login user', $e->getMessage(), 500);
         }
+    }
 
-        public function register(Request $request)
-        {
-            try {
-                $request->validate([
-                    'name'=> 'required|string|max:255',
-                    'email'=> 'required|email|unique:users',
-                    'password'=> 'required|string|min:6',
-                    'role' => 'required|string|exists:roles,name'
-                ]);
+    public function register(Request $request)
+    {
+        try {
+            $request->validate([
+                'name'=> 'required|string|max:255',
+                'email'=> 'required|email|unique:users',
+                'password'=> 'required|string|min:6',
+                'role' => 'required|string|exists:roles,name'
+            ]);
 
-                $user = User::create([
-                    'name' => $request->name,
-                    'email' => $request->email,
-                    'password' => bcrypt($request->password),
-                ]);
+            $result = $this->handler->register(
+                $request->name,
+                $request->email,
+                $request->password,
+                $request->role
+            );
 
-                $user->assignRole($request->role);
+            return ApiResponse::success($result['data'], 'User registered successfully', 201);
+        } catch (Exception $e) {
+            return ApiResponse::error('Failed to register user', $e->getMessage(), 500);
+        }
+    }
 
-                $token = $user->createToken('api-token')->plainTextToken;
+    public function logout(Request $request)
+    {
+        try {
+            $this->handler->logout($request->user());
+            return ApiResponse::success(null, 'Logged out successfully');
+        } catch (Exception $e) {
+            return ApiResponse::error('Failed to logout the user', $e->getMessage(), 500);
+        }
+    }
 
-                $data = [
-                    'user' => $user,
-                    'role' => $request->role,
-                    'token' => $token
-                ];
+    public function getCurrentUser()
+    {
+        try {
+            $data = $this->handler->currentUser(Auth::user());
+            return ApiResponse::success($data, 'Fetched current user');
+        } catch (Exception $e) {
+            return ApiResponse::error('Unable to fetch user info', $e->getMessage(), 500);
+        }
+    }
 
-                return ApiResponse::success($data, 'User registered successfully', 201);
+    public function registerAdmin(Request $request)
+    {
+        try {
+            $request->validate([
+                'email'=> 'required|email|unique:users',
+                'password'=> 'required|string|min:6',
+                'admin_key' => 'nullable|string'
+            ]);
 
-            } catch (Exception $e) {
-                return ApiResponse::error('Failed to register user', $e->getMessage(), 500);
+            $result = $this->handler->registerAdmin(
+                $request->email,
+                $request->password,
+                $request->admin_key,
+                env('ADMIN_CREATION_KEY')
+            );
+
+            if ($result['status'] === 'invalid_admin_key') {
+                return ApiResponse::error('Invalid admin key', null, 403);
             }
+
+            return ApiResponse::success($result['data'], 'Admin registered successfully', 201);
+        } catch (Exception $e) {
+            return ApiResponse::error('Failed to register user', $e->getMessage(), 500);
         }
+    }
 
-        public function logout (Request $request)
-        {
-            try {
-                $request->user()->currentAccessToken()->delete();
+    public function deleteAdmin(Request $request)
+    {
+        try {
+            $request->validate([
+                'email' => 'required|email',
+                'admin_key' => 'required|string'
+            ]);
 
-                return ApiResponse::success(null, 'Logged out successfully');
+            $result = $this->handler->deleteAdmin(
+                $request->email,
+                $request->admin_key,
+                env('ADMIN_CREATION_KEY')
+            );
 
-            } catch (Exception $e) {
-                return ApiResponse::error('Failed to logout the user', $e->getMessage(), 500);
+            if ($result['status'] === 'invalid_admin_key') {
+                return ApiResponse::error('Invalid admin key', null, 403);
             }
-        }
-
-        public function getCurrentUser()
-        {
-            try {
-                $user = Auth::user();
-
-                return ApiResponse::success([
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                ], 'Fetched current user');
-            } catch (Exception $e) {
-                return ApiResponse::error('Unable to fetch user info', $e->getMessage(), 500);
+            if ($result['status'] === 'not_found') {
+                return ApiResponse::error('Admin not found', null, 404);
             }
+
+            return ApiResponse::success(null, 'Admin deleted successfully', 200);
+        } catch (Exception $e) {
+            return ApiResponse::error('Failed to delete admin', $e->getMessage(), 500);
         }
-
-        public function registerAdmin(Request $request)
-        {
-            try {
-                $request->validate([
-                    'email'=> 'required|email|unique:users',
-                    'password'=> 'required|string|min:6',
-                    'admin_key' => 'nullable|string'
-                ]);
-
-                if ($request->admin_key && $request->admin_key === env('ADMIN_CREATION_KEY')) {
-                    $role = 'admin';
-                    $name = 'admin user';
-                } else {
-                    return ApiResponse::error('Invalid admin key', null, 403);
-                }
-
-                $user = User::create([
-                    'name' => $name,
-                    'email' => $request->email,
-                    'password' => bcrypt($request->password),
-                ]);
-
-                $user->assignRole($role);
-
-                $token = $user->createToken('api-token')->plainTextToken;
-
-                return ApiResponse::success([
-                    'user' => $user,
-                    'role' => $role,
-                    'token' => $token
-                ], 'Admin registered successfully', 201);
-
-            } catch (Exception $e) {
-                return ApiResponse::error('Failed to register user', $e->getMessage(), 500);
-            }
-        }
-
-        public function deleteAdmin(Request $request)
-        {
-            try {
-                $request->validate([
-                    'email' => 'required|email',
-                    'admin_key' => 'required|string'
-                ]);
-
-                if ($request->admin_key !== env('ADMIN_CREATION_KEY')) {
-                    return ApiResponse::error('Invalid admin key', null, 403);
-                }
-
-                $admin = User::where('email', $request->email)->first();
-                if (!$admin || !$admin->hasRole('admin')) {
-                    return ApiResponse::error('Admin not found', null, 404);
-                }
-
-                $admin->delete();
-
-                return ApiResponse::success(null, 'Admin deleted successfully', 200);
-
-            } catch (Exception $e) {
-                return ApiResponse::error('Failed to delete admin', $e->getMessage(), 500);
-            }
-        }
-
+    }
 }
