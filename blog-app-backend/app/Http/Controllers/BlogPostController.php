@@ -4,12 +4,12 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Models\BlogPost;
 use Exception;
 
 use App\Mail\PostApprovedMail;
 use App\Jobs\PostApprovedEmail;
 use App\Helpers\ApiResponse;
+use App\Models\BlogPost;
 use Illuminate\Support\Facades\Mail;
 
 class BlogPostController extends Controller

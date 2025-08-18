@@ -4,38 +4,35 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Models\BlogPost;
-use App\Models\PostReaction;
 use App\Helpers\ApiResponse;
+use App\Handlers\PostReactionHandler;
 use Exception;
 
 class PostReactionController extends Controller
 {
+    protected PostReactionHandler $handler;
+
+    public function __construct(PostReactionHandler $handler)
+    {
+        $this->handler = $handler;
+    }
+
     public function toggleReaction($postId)
     {
         try {
-            $user = Auth::user();
+            $userId = (int) Auth::id();
 
-            $post = BlogPost::find($postId);
+            $result = $this->handler->toggle((int) $postId, $userId);
 
-            if (!$post) {
+            if ($result['status'] === 'not_found') {
                 return ApiResponse::error('Post not found', null, 404);
             }
 
-            $existing = PostReaction::where('user_id', $user->id)
-                ->where('blog_post_id', $postId)
-                ->first();
-
-            if ($existing) {
-                $existing->delete();
-                return ApiResponse::success(['status' => 'unliked'], 'Reaction removed successfully');
-            } else {
-                PostReaction::create([
-                    'user_id' => $user->id,
-                    'blog_post_id' => $postId,
-                ]);
+            if ($result['status'] === 'liked') {
                 return ApiResponse::success(['status' => 'liked'], 'Reaction added successfully');
             }
+
+            return ApiResponse::success(['status' => 'unliked'], 'Reaction removed successfully');
         } catch (Exception $e) {
             return ApiResponse::error('Failed to toggle reaction', $e->getMessage(), 500);
         }
@@ -44,21 +41,18 @@ class PostReactionController extends Controller
     public function getReactions($postId)
     {
         try {
-            $post = BlogPost::find($postId);
+            $userId = Auth::id();
 
-            if (!$post) {
+            $result = $this->handler->getReactions((int) $postId, $userId ? (int) $userId : null);
+
+            if ($result['status'] === 'not_found') {
                 return ApiResponse::error('Post not found', null, 404);
             }
 
-            $count = $post->reactions()->count();
-            $userLiked = $post->reactions()->where('user_id', Auth::id())->exists();
-
-            $data = [
-                'count' => $count,
-                'userLiked' => $userLiked,
-            ];
-
-            return ApiResponse::success($data, 'Reactions fetched successfully');
+            return ApiResponse::success([
+                'count'     => $result['count'],
+                'userLiked' => $result['userLiked'],
+            ], 'Reactions fetched successfully');
         } catch (Exception $e) {
             return ApiResponse::error('Failed to get reactions', $e->getMessage(), 500);
         }
