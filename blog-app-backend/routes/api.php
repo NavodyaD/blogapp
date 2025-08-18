@@ -19,40 +19,71 @@ Route::get('/user', function (Request $request) {
 Route::post('/login',[AuthController::class, 'login']);
 Route::post('/register',[AuthController::class, 'register']);
 
-Route::middleware(['auth:sanctum', 'role:writer'])->group(function (){
-    Route::post('/posts', [BlogPostController::class, 'store']);
-    Route::get('/own-posts', [BlogPostController::class, 'ownPosts']);
-    Route::get('/own-drafts', [BlogPostController::class, 'ownDrafts']);
-    Route::patch('/posts/{id}', [BlogPostController::class, 'update']);
-    Route::patch('/posts/{id}/save', [BlogPostController::class, 'savePost']);
-    Route::post('/comments', [PostCommentController::class, 'store']);
-    Route::post('/writer-logout', [AuthController::class, 'logout']);
-    Route::post('/posts/react/{id}', [PostReactionController::class, 'toggleReaction']);
+Route::middleware(['auth:sanctum', 'role:writer'])->group(function () {
+
+    Route::controller(BlogPostController::class)->group(function () {
+        Route::post('/posts', 'store');
+        Route::get('/own-posts', 'ownPosts');
+        Route::get('/own-drafts', 'ownDrafts');
+        Route::patch('/posts/{id}', 'update');
+        Route::patch('/posts/{id}/save', 'savePost');
+    });
+
+    Route::controller(PostCommentController::class)->group(function () {
+        Route::post('/comments', 'store');
+    });
+
+    Route::controller(AuthController::class)->group(function () {
+        Route::post('/writer-logout', 'logout');
+    });
+
+    Route::controller(PostReactionController::class)->group(function () {
+        Route::post('/posts/react/{id}', 'toggleReaction');
+    });
 });
 
-Route::middleware(['auth:sanctum', 'role:admin'])->group(function (){
-    Route::patch('/posts/{id}/approve', [BlogPostController::class, 'approve']);
-    Route::get('/all-posts', [BlogPostController::class, 'allPosts']);
-    Route::post('/admin-logout', [AuthController::class, 'logout']);
-    Route::get('/posts/pending', [BlogPostController::class, 'getPendingPosts']);
-    Route::get('/admin/insights', [AdminDashboardController::class, 'getInsights']);
-    Route::post('/admin/register',[AuthController::class, 'registerAdmin']);
-    Route::get('/admin/list', [AdminDashboardController::class, 'listAdmins']);
-    Route::post('/admin/delete', [AuthController::class, 'deleteAdmin']);
+Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
+
+    Route::controller(BlogPostController::class)->group(function () {
+        Route::patch('/posts/{id}/approve', 'approve');
+        Route::get('/all-posts', 'allPosts');
+        Route::get('/posts/pending', 'getPendingPosts');
+    });
+
+    Route::controller(AuthController::class)->group(function () {
+        Route::post('/admin-logout', 'logout');
+        Route::post('/admin/register', 'registerAdmin');
+        Route::post('/admin/delete', 'deleteAdmin');
+    });
+
+    Route::controller(AdminDashboardController::class)->group(function () {
+        Route::get('/admin/insights', 'getInsights');
+        Route::get('/admin/list', 'listAdmins');
+    });
 });
 
 Route::middleware(['auth:sanctum', 'role:admin|writer'])->group(function (){
     Route::delete('/posts/{id}', [BlogPostController::class, 'destroy']);
 });
 
-Route::get('/posts', [BlogPostController::class, 'index']);
-Route::get('/posts/{id}', [BlogPostController::class, 'getSinglePost']);
-Route::get('/comments/{id}', [PostCommentController::class, 'getComments']);
-Route::get('/posts/reactions/{id}', [PostReactionController::class, 'getReactions']);
-Route::get('/admin/insights/top-liked', [BlogPostController::class, 'topLikedPosts']);
-Route::get('/admin/insights/top-commented', [BlogPostController::class, 'topCommentedPosts']);
-Route::post('/posts/search', [BlogPostController::class, 'searchPosts']);
+// public
+Route::controller(BlogPostController::class)->group(function () {
+    Route::get('/posts', 'index');
+    Route::get('/posts/{id}', 'getSinglePost');
+    Route::post('/posts/search', 'searchPosts');
+    Route::get('/admin/insights/top-liked', 'topLikedPosts');
+    Route::get('/admin/insights/top-commented', 'topCommentedPosts');
+});
 
+Route::controller(PostCommentController::class)->group(function () {
+    Route::get('/comments/{id}', 'getComments');
+});
+
+Route::controller(PostReactionController::class)->group(function () {
+    Route::get('/posts/reactions/{id}', 'getReactions');
+});
+
+// Authenticated - Sanctum
 Route::middleware(['auth:sanctum'])->group(function (){
     Route::delete('comments/{id}', [PostCommentController::class, 'destroyComment']);
     Route::get('/current-user', [AuthController::class, 'getCurrentUser']);
