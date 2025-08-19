@@ -6,23 +6,24 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Exception;
 
-use App\Mail\PostApprovedMail;
 use App\Jobs\PostApprovedEmail;
 use App\Helpers\ApiResponse;
 use App\Models\BlogPost;
-use Illuminate\Support\Facades\Mail;
+use App\Handlers\BlogPostHandler;
 
 class BlogPostController extends Controller
 {
+    protected BlogPostHandler $handler;
+
+    public function __construct(BlogPostHandler $handler)
+    {
+        $this->handler = $handler;
+    }
+
     public function index()
     {
         try {
-            $posts = BlogPost::with('user')
-                ->withCount(['reactions', 'comments'])
-                ->where('post_status', 'published')
-                ->orderBy('created_at', 'desc')
-                ->paginate(6);
-
+            $posts = $this->handler->getPublishedPaginated(6);
             return ApiResponse::success($posts, 'Fetched published posts');
         } catch (Exception $e) {
             return ApiResponse::error('Failed to fetch posts', $e->getMessage());
@@ -32,11 +33,8 @@ class BlogPostController extends Controller
     public function allPosts()
     {
         try {
-
-            $posts = BlogPost::with('user')->orderBy('created_at', 'desc')->get();
-
+            $posts = $this->handler->getAllPosts();
             return ApiResponse::success($posts, 'Fetched all posts');
-
         } catch (Exception $e) {
             return ApiResponse::error('Failed to fetch posts', $e->getMessage());
         }
@@ -45,13 +43,8 @@ class BlogPostController extends Controller
     public function getPendingPosts()
     {
         try {
-
-            $posts = BlogPost::with('user')
-            ->where('post_status', 'pending')
-            ->get();
-
+            $posts = $this->handler->getPendingPosts();
             return ApiResponse::success($posts, 'Fetched pending posts');
-
         } catch (Exception $e) {
             return ApiResponse::error('Failed to fetch pending posts', $e->getMessage());
         }
@@ -61,31 +54,22 @@ class BlogPostController extends Controller
     {
         try {
             $request->validate([
-                'post_title' => 'required|string|max:255',
-                'post_body' => 'required|string',
+                'post_title'  => 'required|string|max:255',
+                'post_body'   => 'required|string',
                 'cover_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
                 'post_status' => 'in:draft,pending',
             ]);
 
-            $imagePath = null;
-
-            if ($request->hasFile('cover_image')) {
-                // storage/app/public/cover_images
-                $imagePath = $request->file('cover_image')->store('cover_images', 'public');
-            }
-
-            $post = BlogPost::create([
-                'user_id' => Auth::id(),
-                'post_title' => $request->post_title,
-                'post_body' => $request->post_body,
-                'cover_image' => $imagePath,
-                'post_status' => $request->post_status ?? 'draft',
-            ]);
+            $post = $this->handler->createPost(
+                (int) Auth::id(),
+                $request->post_title,
+                $request->post_body,
+                $request->file('cover_image'),
+                $request->post_status
+            );
 
             return ApiResponse::success($post, 'Blog post uploaded successful', 201);
-
         } catch (Exception $e) {
-
             return ApiResponse::error('Failed to upload post', $e->getMessage());
         }
     }
@@ -93,14 +77,13 @@ class BlogPostController extends Controller
     public function getSinglePost($id)
     {
         try {
-            $post = BlogPost::find($id);
+            $post = $this->handler->findById((int) $id);
 
-            if(!$post) {
+            if (!$post) {
                 return ApiResponse::error('Blog post not found', null, 404);
             }
 
             return ApiResponse::success($post, 'Post fetched success');
-
         } catch (Exception $e) {
             return ApiResponse::error('Failed to fetch post', $e->getMessage());
         }
@@ -109,17 +92,15 @@ class BlogPostController extends Controller
     public function destroy($id)
     {
         try {
+            $post = $this->handler->findById((int) $id);
 
-            $post = BlogPost::find($id);
-
-            if(!$post) {
-                return response()->json(['message'=>'Blog post not found'], 404);
+            if (!$post) {
+                return response()->json(['message' => 'Blog post not found'], 404);
             }
 
-            $post->delete();
+            $this->handler->deletePost($post);
 
             return ApiResponse::success(null, 'Post deleted successfully');
-
         } catch (Exception $e) {
             return ApiResponse::error('Unable to delete the blog post', $e->getMessage(), 500);
         }
@@ -128,10 +109,8 @@ class BlogPostController extends Controller
     public function ownPosts()
     {
         try {
-            $user = auth()->user();
-
-            $posts = BlogPost::with('user')->where('user_id', $user->id)->orderBy('created_at', 'desc')->get();
-
+            $userId = (int) auth()->id();
+            $posts = $this->handler->getOwnPosts($userId);
             return ApiResponse::success($posts, 'Fetched your posts');
         } catch (Exception $e) {
             return ApiResponse::error('Failed to fetch posts', $e->getMessage(), 500);
@@ -141,12 +120,9 @@ class BlogPostController extends Controller
     public function ownDrafts()
     {
         try {
-            $user = auth()->user();
-
-            $posts = BlogPost::with('user')->where('user_id', $user->id)->where('post_status', 'draft')->get();
-
+            $userId = (int) auth()->id();
+            $posts = $this->handler->getOwnDrafts($userId);
             return ApiResponse::success($posts, 'Fetched your draft posts');
-
         } catch (Exception $e) {
             return ApiResponse::error('Failed to fetch drafts', $e->getMessage(), 500);
         }
@@ -155,26 +131,26 @@ class BlogPostController extends Controller
     public function update(Request $request, $id)
     {
         try {
-            $post = BlogPost::find($id);
+            $post = $this->handler->findById((int) $id);
 
-            if(!$post) {
+            if (!$post) {
                 return ApiResponse::error('Cannot find the BlogPost.', null, 404);
             }
 
-            if(auth()->id() !== $post->user_id) {
+            if (auth()->id() !== $post->user_id) {
                 return ApiResponse::error('Unauthorized', null, 403);
             }
 
             $validated = $request->validate([
-                'post_title' => 'required|string|max:255',
-                'post_body' => 'required|string',
+                'post_title'  => 'required|string|max:255',
+                'post_body'   => 'required|string',
                 'cover_image' => 'nullable|string',
                 'post_status' => 'required|in:draft,pending,published',
             ]);
 
-            $post->update($validated);
+            $updated = $this->handler->updatePost($post, $validated);
 
-            return ApiResponse::success($post, 'Blog post updated successfully');
+            return ApiResponse::success($updated, 'Blog post updated successfully');
         } catch (Exception $e) {
             return ApiResponse::error('Unable to update post', $e->getMessage(), 500);
         }
@@ -183,21 +159,19 @@ class BlogPostController extends Controller
     public function savePost($id)
     {
         try {
-            $post = BlogPost::find($id);
+            $post = $this->handler->findById((int) $id);
 
-            if(!$post) {
+            if (!$post) {
                 return ApiResponse::error('Cannot find the post', null, 404);
             }
 
-            if($post->post_status !== 'draft') {
+            $result = $this->handler->savePostAsPending($post);
+
+            if ($result['status'] !== 'ok') {
                 return ApiResponse::error('This post is not able to save', null, 400);
             }
 
-            $post->post_status = 'pending';
-            $post->save();
-
-            return ApiResponse::success($post, 'Post saved successfully');
-
+            return ApiResponse::success($result['post'], 'Post saved successfully');
         } catch (Exception $e) {
             return ApiResponse::error('Unable to save post', $e->getMessage(), 500);
         }
@@ -206,22 +180,19 @@ class BlogPostController extends Controller
     public function approve($id)
     {
         try {
-            $post = BlogPost::find($id);
+            $post = $this->handler->findById((int) $id);
 
-            if(!$post) {
+            if (!$post) {
                 return ApiResponse::error('Cannot find the post', null, 404);
             }
 
-            if($post->post_status !== 'pending') {
+            $result = $this->handler->approvePost($post);
+
+            if ($result['status'] !== 'ok') {
                 return ApiResponse::error('This is not a pending post', null, 400);
             }
 
-            $post->post_status = 'published';
-            $post->save();
-
-            PostApprovedEmail::dispatch($post);
-
-            return ApiResponse::success($post, 'Post approved and published successfully.');
+            return ApiResponse::success($result['post'], 'Post approved and published successfully.');
         } catch (Exception $e) {
             return ApiResponse::error('Unable to approve post', $e->getMessage(), 500);
         }
@@ -230,11 +201,7 @@ class BlogPostController extends Controller
     public function topLikedPosts()
     {
         try {
-            $posts = BlogPost::withCount('reactions')
-                ->orderBy('reactions_count', 'desc')
-                ->take(2)
-                ->get(['id', 'post_title']);
-
+            $posts = $this->handler->getTopLiked(2);
             return ApiResponse::success($posts, 'Top liked posts fetched successfully');
         } catch (Exception $e) {
             return ApiResponse::error('Failed to fetch top liked posts', $e->getMessage(), 500);
@@ -244,11 +211,7 @@ class BlogPostController extends Controller
     public function topCommentedPosts()
     {
         try {
-            $posts = BlogPost::withCount('comments')
-                ->orderBy('comments_count', 'desc')
-                ->take(2)
-                ->get(['id', 'post_title']);
-
+            $posts = $this->handler->getTopCommented(2);
             return ApiResponse::success($posts, 'Top commented posts fetched successfully');
         } catch (Exception $e) {
             return ApiResponse::error('Failed to fetch top commented posts', $e->getMessage(), 500);
@@ -262,12 +225,7 @@ class BlogPostController extends Controller
                 'query' => 'required|string|max:255',
             ]);
 
-            $query = $request->input('query');
-
-            $posts = BlogPost::with('user', 'comments', 'reactions')
-                ->withCount(['reactions', 'comments'])
-                ->where('post_title', 'LIKE', "%{$query}%")
-                ->get();
+            $posts = $this->handler->searchByTitle($request->input('query'));
 
             return ApiResponse::success($posts, 'Search results fetched successfully');
         } catch (Exception $e) {
